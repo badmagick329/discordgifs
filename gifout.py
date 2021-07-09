@@ -172,7 +172,7 @@ def video_to_png(oinfo: OutInfo):
     """Create png sequence from the source video for gifski"""
     folder = available_folder_name("frame")
     os.mkdir(folder)
-    video_to_seq_str = r"ffmpeg -i "{}" -vf fps={} {}/frame%d.png"
+    video_to_seq_str = r'ffmpeg -i "{}" -vf fps={} {}/frame%d.png'
     print(video_to_seq_str.format(oinfo.iname,oinfo.fps,folder))
     subprocess.run(video_to_seq_str.format(oinfo.iname,oinfo.fps,folder), stderr=subprocess.PIPE)
     oinfo.iname=f"{folder}/frame*.png"
