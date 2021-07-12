@@ -55,7 +55,7 @@ def get_out_info(target: str) -> OutInfo:
     owratio, ohratio = (1, 1) if out_choice != 'banner' else (1, 0.4)
     osize_limit = EMOTESIZE if out_choice == 'emote' else PFPSIZE
     # get out fps
-    fps_choices = ['15', '24', '30', '33', '50']
+    fps_choices = ['10','15', '24', '30', '33', '50']
     fps_choice = get_input(f"Select FPS ({','.join(fps_choices)}): ", fps_choices)
     iwidth, iheight = get_dimensions(target)
 
@@ -257,7 +257,7 @@ def ratio_check(oinfo: OutInfo, target_ratio: float):
             new_name = None
             while user_input == 'n':
                 y_choice = get_input(f"Enter y value to start cropping from\n"
-                                     f"Top = 0. Any value beyond source height will crop at the bottom. "
+                                     f"Top = 0 (Video height is {oinfo.iheight}) "
                                      f"Leave blank to crop at center ",
                                      crop_check)
                 if y_choice.isdigit():
@@ -267,7 +267,7 @@ def ratio_check(oinfo: OutInfo, target_ratio: float):
                 elif y_choice > oinfo.iheight - h:
                     y_choice = oinfo.iheight - h
                 x_choice = get_input(f"Enter x value to start cropping from\n"
-                                     f"Left edge = 0. Any value beyond source width will "
+                                     f"Left edge = 0 (Video width is {oinfo.iwidth}) "
                                      f"crop with right edge on boundary. "
                                      f"Leave blank to crop at center ",
                                      crop_check)
