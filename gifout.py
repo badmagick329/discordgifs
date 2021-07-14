@@ -307,7 +307,7 @@ def main():
         if tempfile:
             cleanup_files.append(tempfile)
 
-    # if emote use gifski else use ffmpeg
+    # if emote use ffmpeg else use gifski
     if oinfo.osize_limit != EMOTESIZE:
         # encode_gif(oinfo)
         gifski(oinfo)
