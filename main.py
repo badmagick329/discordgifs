@@ -116,7 +116,6 @@ class EncodingInfo:
 
 
 class Encoder:
-
     def __init__(self, einfo: EncodingInfo):
         self.einfo = einfo
         self.output = None
@@ -423,46 +422,54 @@ def valid_ext(f: str) -> bool:
     return f.endswith(VALID_EXTS)
 
 
+def get_einfos_and_tempfiles() -> Tuple[List[EncodingInfo], List[str]]:
+    einfos = list()
+    tempfiles = list()
+
+    # Get input files
+    get_more = True
+    while get_more:
+        iname = CLIInput(validators=[InputValidator(os.path.isfile, "File not found."),
+                                     InputValidator(valid_ext, "File is not a valid media file.")],
+                         prompt_text="Enter full path including file name, to video or first image in png sequence: "
+                         ).prompt()
+        source_fps = Encoder.get_fps(iname)
+
+        einfo = get_encoding_info(iname, source_fps, Encoder.get_codec(iname))
+
+        # if image sequence, create video
+        numpng = re.search(r"[^\d]*(\d{1,5}).png", einfo.iname)
+        if numpng and einfo.icodec == "png":
+            print("\nCreating video from image sequence")
+            tempfile = Encoder.png_to_video(einfo.iname, einfo.fps)
+            einfo.iname = tempfile
+            if tempfile:
+                tempfiles.append(tempfile)
+
+        if einfo.out_choice == "sticker" and (dur := Encoder.get_duration(einfo.iname)) >= 5:
+            print(f"\nVideo duration is {dur} seconds. Stickers must be less than 5 seconds.")
+        else:
+            # crop video if needed
+            if fix_file_dimensions(einfo):
+                tempfiles.append(result)
+            einfos.append(einfo)
+        get_more = CLIInput(binary_response=True, prompt_text="\nWould you like to add another file? ").prompt()
+
+    return einfos, tempfiles
+
 def main():
     check_dependancies()
 
-    iname = CLIInput(validators=[InputValidator(os.path.isfile, "File not found."),
-                                 InputValidator(valid_ext, "File is not a valid media file.")],
-                     prompt_text="Enter full path including file name, to video or first image in png sequence: "
-                     ).prompt()
-    source_fps = Encoder.get_fps(iname)
+    einfos, tempfiles = get_einfos_and_tempfiles()
 
-    einfo = get_encoding_info(iname, source_fps, Encoder.get_codec(iname))
-
-    tempfiles = list()
-
-    # if image sequence, create video
-    numpng = re.search(r"[^\d]*(\d{1,5}).png", einfo.iname)
-    if numpng and einfo.icodec == "png":
-        print("\nCreating video from image sequence")
-        tempfile = Encoder.png_to_video(einfo.iname, einfo.fps)
-        einfo.iname = tempfile
-        if tempfile:
+    # encode gifs
+    for einfo in einfos:
+        encoder = Encoder(einfo)
+        if einfo.out_choice != "emote" and einfo.out_choice != "sticker":
+            tempfile = Encoder.video_to_png(einfo)
             tempfiles.append(tempfile)
-
-    if einfo.out_choice == "sticker" and (dur := Encoder.get_duration(einfo.iname)) >= 5:
-        print(f"\nVideo duration is {dur} seconds. Stickers must be less than 5 seconds.")
-        clean_up(tempfiles)
-        input("Press enter to exit")
-        exit(1)
-
-    # crop video if needed
-    result = fix_file_dimensions(einfo)
-    if result:
-        tempfiles.append(result)
-
-    # encode gif
-    encoder = Encoder(einfo)
-    if einfo.out_choice != "emote" and einfo.out_choice != "sticker":
-        tempfile = Encoder.video_to_png(einfo)
-        tempfiles.append(tempfile)
-    output = encoder.encode_gif()
-    print(f"\nOutput file: {output}")
+        output = encoder.encode_gif()
+        print(f"\nOutput file: {output}")
 
     # clean up
     clean_up(tempfiles)

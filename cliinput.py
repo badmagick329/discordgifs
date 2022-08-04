@@ -111,7 +111,9 @@ class CLIInput:
 
             results = [v(user_input) for v in self.validators]
             if all(results):
-                return True if self.binary_response else user_input
+                if self.binary_response:
+                    return user_input.lower() in self.YES
+                return  user_input
 
             for result in results:
                 if not result:
