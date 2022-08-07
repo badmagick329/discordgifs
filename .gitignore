@@ -32,4 +32,10 @@ ENV/
 env.bak/
 venv.bak/
 
+.idea
 venv/
+__pycache__/
+.pytest_cache/
+.tox/
+.DS_Store
+tests/
