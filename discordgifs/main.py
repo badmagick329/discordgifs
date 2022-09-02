@@ -203,8 +203,6 @@ class Encoder:
         """Return value of stream_value for target"""
         formatted_str = (f'ffprobe -v error -select_streams v:0 -show_entries '
                          f'stream={stream_value} -of default=nw=1:nk=1 "{tar}"')
-        # if show_commands:
-        #     print(f"\n{formatted_str}")
         fout = subprocess.run(formatted_str, stdout=subprocess.PIPE).stdout.decode("utf-8")
         return fout.strip()
 
@@ -223,6 +221,8 @@ class Encoder:
 
         einfo = self.einfo
         owidth, oheight = einfo.init_odims
+
+        einfo.oname = get_available_name(einfo.oname)
 
         iname = os.path.basename(einfo.iname)
         old_cwd = os.getcwd()
@@ -262,9 +262,7 @@ class Encoder:
         einfo = self.einfo
         owidth, oheight = einfo.init_odims
 
-        # iname = os.path.basename(einfo.iname)
-        # old_cwd = os.getcwd()
-        # os.chdir(os.path.dirname(einfo.iname))
+        einfo.oname = get_available_name(einfo.oname)
 
         mul = 0.60
 
@@ -283,7 +281,6 @@ class Encoder:
             owidth, mul = self.wsize_and_mul(size, owidth, mul)
             oheight = int(owidth * einfo.ohscale)
 
-        # os.chdir(old_cwd)
         self.output = einfo.oname
         return self.output
 

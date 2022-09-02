@@ -16,6 +16,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+.pytest_cache/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -33,9 +34,9 @@ env.bak/
 venv.bak/
 
 .idea
-venv/
 __pycache__/
-.pytest_cache/
 .tox/
 .DS_Store
+
 tests/
+.coverage
