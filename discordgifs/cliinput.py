@@ -8,6 +8,7 @@ class ValidationResult:
     """
     Represents the result of a validation.
     """
+
     is_valid: bool
     error_message: str
 
@@ -20,6 +21,7 @@ class InputValidator:
     """
     A data class to store a validator function and an error message.
     """
+
     validator: Callable
     error_message: str
 
@@ -38,7 +40,10 @@ class InputValidator:
             datetime.strptime(input_value, "%Y-%m-%d")
             return ValidationResult(is_valid=True, error_message="")
         except ValueError:
-            return ValidationResult(is_valid=False, error_message="Invalid date format. Please use YYYY-MM-DD.")
+            return ValidationResult(
+                is_valid=False,
+                error_message="Invalid date format. Please use YYYY-MM-DD.",
+            )
 
     def __call__(self, *args, **kwargs):
         return self.validate(*args, **kwargs)
@@ -55,10 +60,16 @@ class CLIInput:
     YES = ["y", "yes"]
     NO = ["n", "no"]
 
-    def __init__(self, required: bool = True,
-                 validators: List[Callable] = None, binary_response: bool = False,
-                 choices: List = None, case_sensitive: bool = False,
-                 optional_choices: List = None, prompt_text: str = ""):
+    def __init__(
+        self,
+        required: bool = True,
+        validators: List[Callable] = None,
+        binary_response: bool = False,
+        choices: List = None,
+        case_sensitive: bool = False,
+        optional_choices: List = None,
+        prompt_text: str = "",
+    ):
         """
         :param required: Whether the input is required.
         :param validators: User input will be validated against this list of functions before it is returned.
@@ -78,12 +89,18 @@ class CLIInput:
         self.optional_choices = optional_choices if optional_choices else list()
         self.choices_str = ""  # show available choices in prompt
         if self.choices:
-            self.choices_str = "Valid choices:\n" + (", ".join([str(c) for c in self.choices]))
+            self.choices_str = "Valid choices:\n" + (
+                ", ".join([str(c) for c in self.choices])
+            )
         if self.optional_choices:
             self.choices_str += "\n" if self.choices_str else ""
-            self.choices_str += "Optional choices:\n" + (", ".join([str(c) for c in self.optional_choices]))
+            self.choices_str += "Optional choices:\n" + (
+                ", ".join([str(c) for c in self.optional_choices])
+            )
         self.str_choices = [str(c) for c in self.choices]  # for comparison
-        self.str_optional_choices = [str(c) for c in self.optional_choices]  # for comparison
+        self.str_optional_choices = [
+            str(c) for c in self.optional_choices
+        ]  # for comparison
         self.case_sensitive = case_sensitive
 
         self._validators = validators if validators else list()
@@ -150,14 +167,25 @@ class CLIInput:
                 validators.append(v)
 
         if self.required:
-            validators.append(InputValidator(validator=lambda x: x != "",
-                                             error_message="Input is required."))
+            validators.append(
+                InputValidator(
+                    validator=lambda x: x != "", error_message="Input is required."
+                )
+            )
 
         if self.binary_response:
-            validators.append(InputValidator(validator=self.valid_binary_response,
-                                             error_message="Invalid input. Please enter y or n."))
+            validators.append(
+                InputValidator(
+                    validator=self.valid_binary_response,
+                    error_message="Invalid input. Please enter y or n.",
+                )
+            )
         elif self.choices:
-            validators.append(InputValidator(validator=self.valid_choice,
-                                             error_message=f"Invalid input. {self.choices_str}"))
+            validators.append(
+                InputValidator(
+                    validator=self.valid_choice,
+                    error_message=f"Invalid input. {self.choices_str}",
+                )
+            )
 
         return validators
