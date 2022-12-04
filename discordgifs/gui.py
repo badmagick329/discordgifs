@@ -6,6 +6,7 @@ from encoder import Encoder, EncodingInfo
 from typing import List, Union
 from dataclasses import dataclass
 import subprocess
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -251,7 +252,9 @@ class GuiHandler:
                 self.auto_crop_file(self.current_file)
                 self.encode_callback()
             else:
-                self.show_crop_modal(hide_x=self.current_file.iratio > self.current_file.oratio)
+                self.show_crop_modal(
+                    hide_x=self.current_file.iratio > self.current_file.oratio
+                )
             return
 
         self.output_files = list()
@@ -349,7 +352,7 @@ class GuiHandler:
 class GuiClient:
     WIDTH = 960
     HEIGHT = 595
-    FONT = "./fonts/Roboto-Medium.ttf"
+    FONT = Path(__file__).parent / "fonts" / "Roboto-Medium.ttf"
     FONT_SIZE = 18
 
     def __init__(self, gh: GuiHandler):
@@ -439,7 +442,6 @@ class GuiClient:
                 label="Crop",
             )
             dpg.set_value(t.crop_checkbox, True)
-
 
             # Auto crop
             dpg.add_spacer(height=10)
