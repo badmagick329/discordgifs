@@ -212,7 +212,7 @@ class Encoder:
             f"ffprobe -v error -select_streams v:0 -show_entries "
             f'stream={stream_value} -of default=nw=1:nk=1 "{tar}"'
         )
-        fout = subprocess.run(formatted_str, stdout=subprocess.PIPE).stdout.decode(
+        fout = subprocess.run(formatted_str, stdout=subprocess.PIPE, shell=True).stdout.decode(
             "utf-8"
         )
         return fout.strip()
