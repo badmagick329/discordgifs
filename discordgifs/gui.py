@@ -149,6 +149,7 @@ class GuiHandler:
         "default_prompt" - Default text attached to the fps input
         "default_fps" - Default fps when input file has no fps value
         """
+        path = path.strip('"')
         valid_file = self.is_valid_file(path)
 
         png_codec = ""
@@ -188,7 +189,7 @@ class GuiHandler:
         dpg.set_value(Tags.fps_input, round(fps))
 
     def add_file_callback(self):
-        filename = dpg.get_value(Tags.filename_input)
+        filename = dpg.get_value(Tags.filename_input).strip('"')
         print(f"{filename=}")
         print(f"{Tags.filename_input=}")
         if not self.is_valid_file(filename):
