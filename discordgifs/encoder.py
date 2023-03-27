@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 import subprocess
 import re
 import os
+import sys
 
 show_commands = True
 
@@ -212,13 +213,15 @@ class Encoder:
             f"ffprobe -v error -select_streams v:0 -show_entries "
             f'stream={stream_value} -of default=nw=1:nk=1 "{tar}"'
         )
-        fout = subprocess.run(formatted_str, stdout=subprocess.PIPE, shell=True).stdout.decode(
-            "utf-8"
-        )
+        fout = subprocess.run(
+            formatted_str, stdout=subprocess.PIPE, shell=True
+        ).stdout.decode("utf-8")
         return fout.strip()
 
     def encode_gif(self) -> str:
-        """Encode gif until it's the maximum size it can be within the size limit using ffmpeg"""
+        """
+        Encode gif until it's the maximum size it can be within the size limit using ffmpeg or gifski
+        """
         GIFSKI = self.einfo.iname.endswith("*.png")
 
         if GIFSKI:
@@ -228,7 +231,11 @@ class Encoder:
         return self.output
 
     def gifski_encode(self) -> str:
-        GIFSKI_GIF = 'gifski.exe {} --fps {} --width {} -o "{}"'
+        if sys.platform == "win32":
+            gifski = "gifski.exe"
+        else:
+            gifski = "gifski"
+        GIFSKI_GIF = '{} {} --fps {} --width {} -o "{}"'
 
         einfo = self.einfo
         owidth, oheight = einfo.init_odims
@@ -244,7 +251,7 @@ class Encoder:
 
         old_width = -1
         while old_width != owidth:
-            formatted_str = GIFSKI_GIF.format(iname, einfo.fps, owidth, einfo.oname)
+            formatted_str = GIFSKI_GIF.format(gifski, iname, einfo.fps, owidth, einfo.oname)
 
             if show_commands:
                 print(f"\n{formatted_str}")
