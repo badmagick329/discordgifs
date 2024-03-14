@@ -1,12 +1,12 @@
-import dearpygui.dearpygui as dpg
 import os
-import shutil
 import re
-from encoder import Encoder, EncodingInfo
-from typing import List, Union
+import shutil
 from dataclasses import dataclass
-import subprocess
 from pathlib import Path
+
+import dearpygui.dearpygui as dpg
+from encoder import Encoder
+from encoding_info import OUTPUT_CHOICES, EncodingInfo
 
 
 @dataclass(frozen=True)
@@ -95,13 +95,6 @@ class GuiHandler:
                     shutil.rmtree(f)
             except (FileNotFoundError, OSError, PermissionError) as e:
                 self.show_message(f"Error removing {f}: {e}")
-
-    @staticmethod
-    def create_einfo(filename, fps, output_type):
-        codec = Encoder.get_codec(filename)
-        iwidth, iheight = Encoder.get_dimensions(filename)
-        einfo = EncodingInfo(filename, iwidth, iheight, codec, output_type, fps)
-        return einfo
 
     def show_crop_modal(self, hide_x: bool):
         dpg.configure_item(Tags.crop_x_slider, show=True)
@@ -196,29 +189,24 @@ class GuiHandler:
             return
         # Get data
         dpg.configure_item(Tags.queue_button, enabled=False)
-        codec = Encoder.get_codec(filename)
-        iwidth, iheight = Encoder.get_dimensions(filename)
-        data = EncodingInfo(
+        einfo = Encoder.create_einfo(
             filename,
-            iwidth,
-            iheight,
-            codec,
-            dpg.get_value(Tags.output_radio_button),
             dpg.get_value(Tags.fps_input),
+            dpg.get_value(Tags.output_radio_button),
         )
 
         # png to video
-        numpng = re.search(r"[^\d]*(\d{1,5}).png", data.iname)
-        if codec == "png" and numpng:
+        numpng = re.search(r"[^\d]*(\d{1,5}).png", einfo.iname)
+        if einfo.icodec == "png" and numpng:
             self.show_message("Converting png sequence to video")
-            tmp = Encoder.png_to_video(data.iname, data.fps)
+            tmp = Encoder.png_to_video(einfo.iname, einfo.fps)
             self.temp_files.append(tmp)
-            data.iname = tmp
+            einfo.iname = tmp
 
         # sticker check
         if (
-            data.out_choice == "sticker"
-            and (dur := Encoder.get_duration(data.iname)) >= 5
+            einfo.is_sticker()
+            and (dur := Encoder.get_duration(einfo.iname)) >= 5
         ):
             self.show_message(
                 f"Video duration is {dur} seconds. Stickers must be less than 5 seconds"
@@ -226,12 +214,14 @@ class GuiHandler:
             dpg.configure_item(Tags.queue_button, enabled=True)
             return
 
-        data.crop = dpg.get_value(Tags.crop_checkbox)
-        data.auto_crop = dpg.get_value(Tags.auto_crop_checkbox)
-        self.files_to_process.append(data)
-        self.show_message(f"Added {data.iname} to queue")
+        einfo.crop = dpg.get_value(Tags.crop_checkbox)
+        einfo.auto_crop = dpg.get_value(Tags.auto_crop_checkbox)
+        self.files_to_process.append(einfo)
+        self.show_message(f"Added {einfo.iname} to queue")
 
-        assert len(self.files_to_process) > 0, "file_to_process should not be empty"
+        assert (
+            len(self.files_to_process) > 0
+        ), "file_to_process should not be empty"
 
         dpg.configure_item(
             Tags.encode_button,
@@ -244,7 +234,9 @@ class GuiHandler:
         dpg.configure_item(Tags.encode_button, enabled=False)
         dpg.configure_item(Tags.queue_button, enabled=False)
         self.to_crop = [
-            ei for ei in self.files_to_process if ei.iratio != ei.oratio and ei.crop
+            ei
+            for ei in self.files_to_process
+            if ei.iratio != ei.oratio and ei.crop
         ]
         while self.to_crop:
             self.show_message("Cropping files")
@@ -270,7 +262,7 @@ class GuiHandler:
                 label=f"Encoding ({len(self.files_to_process)} more in queue)",
             )
 
-            if einfo.out_choice != "emote" and einfo.out_choice != "sticker":
+            if einfo.uses_gifski():
                 self.show_message(
                     f"Creating image sequence from {os.path.basename(einfo.iname)} for gifski"
                 )
@@ -338,7 +330,9 @@ class GuiHandler:
     def crop_confirm_callback(self):
         einfo = self.current_file
         einfo.iname = self.cropped_filenames[-1]
-        einfo.iwidth, einfo.iheight = Encoder.get_dimensions(self.cropped_filenames[-1])
+        einfo.iwidth, einfo.iheight = Encoder.get_dimensions(
+            self.cropped_filenames[-1]
+        )
         dpg.configure_item(Tags.crop_window, show=False)
         self.current_file = None
         self.encode_callback()
@@ -365,7 +359,9 @@ class GuiClient:
         else:
             self.init_gui()
 
-        dpg.create_viewport(title=self.gh.title, width=self.WIDTH, height=self.HEIGHT)
+        dpg.create_viewport(
+            title=self.gh.title, width=self.WIDTH, height=self.HEIGHT
+        )
         dpg.setup_dearpygui()
         dpg.show_viewport()
 
@@ -426,18 +422,19 @@ class GuiClient:
 
             # Output type
             dpg.add_spacer(height=10)
-            out_choices = EncodingInfo.OUTPUT_CHOICES.split(",")
             dpg.add_text("Enter output type:")
             dpg.add_radio_button(
                 tag=t.output_radio_button,
-                items=out_choices,
+                items=OUTPUT_CHOICES,
                 horizontal=True,
-                default_value=out_choices[0],
+                default_value=OUTPUT_CHOICES[0],
             )
 
             # Crop or stretch
             dpg.add_spacer(height=10)
-            dpg.add_text("Crop if dimensions don't match output? (recommended)")
+            dpg.add_text(
+                "Crop if dimensions don't match output? (recommended)"
+            )
             dpg.add_checkbox(
                 tag=t.crop_checkbox,
                 label="Crop",
@@ -534,7 +531,9 @@ def check_dependencies():
     if not shutil.which("ffprobe"):
         return "ffprobe is not installed. Please install it from https://ffmpeg.org/"
     if not shutil.which("gifski"):
-        return "gifski is not installed. Please install it from https://gif.ski/"
+        return (
+            "gifski is not installed. Please install it from https://gif.ski/"
+        )
 
 
 def main():
