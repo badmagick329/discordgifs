@@ -119,7 +119,7 @@ class EncodingInfo:
         """Return True if given width will take video out of bounds based on the input and output
         widths and heights"""
         return width >= self.iwidth or int(
-            ((width * self.ohscale) * (self.owscale / self.ohscale)) > self.iheight
+            ((width * self.ohscale) * (self.oratio)) > self.iheight
         )
 
 
