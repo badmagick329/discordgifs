@@ -527,13 +527,11 @@ class GuiClient:
 
 def check_dependencies():
     if not shutil.which("ffmpeg"):
-        return "ffmpeg is not installed. Please install it from https://ffmpeg.org/"
+        return "ffmpeg is not installed. Please install ffmpeg from https://ffmpeg.org/"
     if not shutil.which("ffprobe"):
-        return "ffprobe is not installed. Please install it from https://ffmpeg.org/"
-    if not shutil.which("gifski"):
-        return (
-            "gifski is not installed. Please install it from https://gif.ski/"
-        )
+        return "ffprobe is not installed. Please install ffmpeg from https://ffmpeg.org/"
+    if not shutil.which("ffplay"):
+        return "ffplay is not installed. Please install ffmpeg from https://ffmpeg.org/"
 
 
 def main():

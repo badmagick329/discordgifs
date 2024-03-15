@@ -1,3 +1,4 @@
+import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Tuple
@@ -20,6 +21,7 @@ class EncodingInfo(ABC):
     osize_range: float
     fps: int
     out_choice: str
+    uses_gifski: bool
 
     BANNER_RATIO: tuple = 1, 0.4
     ONE_TO_ONE_RATIO: tuple = 1, 1
@@ -87,11 +89,6 @@ class EncodingInfo(ABC):
         raise NotImplementedError("init_odims must be implemented")
 
     @property
-    @abstractmethod
-    def uses_gifski(self) -> bool:
-        raise NotImplementedError("uses_gifski must be implemented")
-
-    @property
     def is_sticker(self) -> bool:
         return self.out_choice == "sticker"
 
@@ -117,15 +114,12 @@ class BannerEncodingInfo(EncodingInfo):
         self.osize_limit = EncodingInfo.PFP_SIZE
         self.osize_range = 0.85
         self.oname = get_available_name(iname, ext=".gif")
+        self.uses_gifski = shutil.which("gifski") is not None
 
     @property
     def init_odims(self) -> Tuple[int, int]:
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.BANNER_FSIZE
-
-    @property
-    def uses_gifski(self) -> bool:
-        return True
 
 
 class EmoteEncodingInfo(EncodingInfo):
@@ -135,17 +129,14 @@ class EmoteEncodingInfo(EncodingInfo):
         super().__init__(iname, iwidth, iheight, icodec, "emote", fps)
         self.owscale, self.ohscale = EncodingInfo.ONE_TO_ONE_RATIO
         self.osize_limit = EncodingInfo.EMOTE_SIZE
-        self.oname = get_available_name(iname, ext=".gif")
         self.osize_range = 0.95
+        self.oname = get_available_name(iname, ext=".gif")
+        self.uses_gifski = False
 
     @property
     def init_odims(self) -> Tuple[int, int]:
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.EMOTE_FSIZE
-
-    @property
-    def uses_gifski(self) -> bool:
-        return False
 
 
 class PfpEncodingInfo(EncodingInfo):
@@ -157,15 +148,12 @@ class PfpEncodingInfo(EncodingInfo):
         self.osize_limit = EncodingInfo.PFP_SIZE
         self.osize_range = 0.85
         self.oname = get_available_name(iname, ext=".gif")
+        self.uses_gifski = shutil.which("gifski") is not None
 
     @property
     def init_odims(self) -> Tuple[int, int]:
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.PFP_FSIZE
-
-    @property
-    def uses_gifski(self) -> bool:
-        return True
 
 
 class StickerEncodingInfo(EncodingInfo):
@@ -177,12 +165,9 @@ class StickerEncodingInfo(EncodingInfo):
         self.osize_limit = EncodingInfo.STICKER_SIZE
         self.osize_range = 0.95
         self.oname = get_available_name(iname, ext=".png")
+        self.uses_gifski = False
 
     @property
     def init_odims(self) -> Tuple[int, int]:
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.STICKER_FSIZE
-
-    @property
-    def uses_gifski(self) -> bool:
-        return False
