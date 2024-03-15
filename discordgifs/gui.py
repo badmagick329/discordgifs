@@ -205,7 +205,7 @@ class GuiHandler:
 
         # sticker check
         if (
-            einfo.is_sticker()
+            einfo.is_sticker
             and (dur := Encoder.get_duration(einfo.iname)) >= 5
         ):
             self.show_message(
@@ -255,14 +255,14 @@ class GuiHandler:
         while self.files_to_process:
             einfo = self.files_to_process.pop(0)
             self.current_file = einfo
-            encoder = Encoder(einfo)
+            encoder_ = Encoder.new(einfo)
 
             dpg.configure_item(
                 Tags.encode_button,
                 label=f"Encoding ({len(self.files_to_process)} more in queue)",
             )
 
-            if einfo.uses_gifski():
+            if einfo.uses_gifski:
                 self.show_message(
                     f"Creating image sequence from {os.path.basename(einfo.iname)} for gifski"
                 )
@@ -270,7 +270,7 @@ class GuiHandler:
                 self.temp_files.append(tmp)
             self.show_message(f"Encoding {einfo.iname}")
 
-            self.output_files.append(encoder.encode_gif())
+            self.output_files.append(encoder_.encode())
             self.current_file = None
 
         assert len(self.files_to_process) == 0, "files_to_process not cleared"

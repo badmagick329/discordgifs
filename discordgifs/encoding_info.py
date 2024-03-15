@@ -86,13 +86,14 @@ class EncodingInfo(ABC):
     def init_odims(self) -> Tuple[int, int]:
         raise NotImplementedError("init_odims must be implemented")
 
+    @property
     @abstractmethod
     def uses_gifski(self) -> bool:
         raise NotImplementedError("uses_gifski must be implemented")
 
-    @abstractmethod
+    @property
     def is_sticker(self) -> bool:
-        raise NotImplementedError("is_sticker must be implemented")
+        return self.out_choice == "sticker"
 
     def max_width_check(self, width: int) -> bool:
         """
@@ -118,11 +119,9 @@ class BannerEncodingInfo(EncodingInfo):
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.BANNER_FSIZE
 
+    @property
     def uses_gifski(self) -> bool:
         return True
-
-    def is_sticker(self) -> bool:
-        return False
 
 
 class EmoteEncodingInfo(EncodingInfo):
@@ -140,10 +139,8 @@ class EmoteEncodingInfo(EncodingInfo):
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.EMOTE_FSIZE
 
+    @property
     def uses_gifski(self) -> bool:
-        return False
-
-    def is_sticker(self) -> bool:
         return False
 
 
@@ -162,11 +159,9 @@ class PfpEncodingInfo(EncodingInfo):
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.PFP_FSIZE
 
+    @property
     def uses_gifski(self) -> bool:
-        return False
-
-    def is_sticker(self) -> bool:
-        return False
+        return True
 
 
 class StickerEncodingInfo(EncodingInfo):
@@ -184,8 +179,6 @@ class StickerEncodingInfo(EncodingInfo):
         """Return the initial output dimensions based on the out_choice"""
         return EncodingInfo.STICKER_FSIZE
 
+    @property
     def uses_gifski(self) -> bool:
         return False
-
-    def is_sticker(self) -> bool:
-        return True

@@ -2,108 +2,142 @@ import os
 import re
 import subprocess
 import sys
-from typing import Optional, Tuple
+from abc import ABC, abstractmethod
+from typing import Tuple
 
+import ffmpeg_cmds
 from encoding_info import EncodingInfo
 from utils import get_available_name
 
 show_commands = True
 
 
-class Encoder:
+class Encoder(ABC):
+    einfo: EncodingInfo
+
     def __init__(self, einfo: EncodingInfo):
         self.einfo = einfo
-        self.output = None
 
     @staticmethod
+    def new(einfo: EncodingInfo):
+        if einfo.uses_gifski:
+            return GifskiEncoder(einfo)
+        return FFmpegEncoder(einfo)
+
+    @classmethod
     def png_to_video(
+        cls,
         inp: str,
         output_fps: int,
-        out: Optional[str] = None,
         show_command: bool = True,
     ) -> str:
         """Create video from a png sequence. Return full path of the video."""
-        PNG_TO_VIDEO = (
-            'ffmpeg -y -r {} -i "{}" -c:v libx264 -crf 0 -vf fps={} '
-            '-pix_fmt yuv420p -loglevel warning "{}"'
-        )
         dirname = os.path.dirname(inp)
         filename = os.path.basename(inp)
-        num_of_digits = len(re.findall(r"\d+", filename)[0])
-        seq_input = re.sub(r"\d+", f"%0{num_of_digits}d", filename)
-        seq_input = os.path.join(dirname, seq_input)
-
-        if out is None:
-            out = (
-                re.sub(r"\d{1,6}$", "", os.path.splitext(filename)[0]) + ".mp4"
-            )
-            out = os.path.join(dirname, out)
+        out = re.sub(r"\d{1,6}$", "", os.path.splitext(filename)[0]) + ".mp4"
+        out = os.path.join(dirname, out)
         out = get_available_name(out)
 
-        formatted_str = PNG_TO_VIDEO.format(
-            output_fps, seq_input, output_fps, out
-        )
-        if show_command:
-            print(f"\n{formatted_str}")
-        subprocess.run(formatted_str, shell=True)
+        cmd = ffmpeg_cmds.png_to_video(filename, dirname, output_fps, out)
+        Encoder._run_cmd(cmd, show_command)
         return out
 
-    @staticmethod
-    def video_to_png(einfo: EncodingInfo, show_command: bool = True) -> str:
-        """Create png sequence from the source video for gifski"""
-        PNG = r'ffmpeg -i "{}" -vf fps={} -loglevel warning "{}/frame%05d.png"'
+    @classmethod
+    def video_to_png(
+        cls, einfo: EncodingInfo, show_command: bool = True
+    ) -> str:
+        """Create png sequence from the source video for gifski.
+        Return full path of the folder."""
         dirname = os.path.dirname(einfo.iname)
         folder = get_available_name(os.path.join(dirname, "frames"))
         os.mkdir(folder)
-        formatted_str = PNG.format(einfo.iname, einfo.fps, folder)
-        if show_command:
-            print(f"\n{formatted_str}")
-        subprocess.run(formatted_str, shell=True)
+
+        cmd = ffmpeg_cmds.video_to_png(einfo.iname, einfo.fps, folder)
+        Encoder._run_cmd(cmd, show_command)
         einfo.iname = os.path.join(folder, "frame*.png")
         return folder
 
-    @staticmethod
-    def crop(
-        inp: str, w: int, h: int, x: int, y: int, out: Optional[str] = None
-    ) -> str:
+    @classmethod
+    def crop(cls, inp: str, w: int, h: int, x: int, y: int) -> str:
         """Crop the video. Return full path of the cropped video."""
-        CROP = 'ffmpeg -y -i "{}" -filter:v "crop={}:{}:{}:{}" -c:v libx264 -crf 0 -an -loglevel warning "{}"'
-        if out is None:
-            out = get_available_name(inp, "mp4")
-        out = get_available_name(out)
-        formatted_str = CROP.format(inp, w, h, x, y, out)
-        if show_commands:
-            print(f"\n{formatted_str}")
-        subprocess.run(formatted_str, shell=True)
+        cmd, out = ffmpeg_cmds.crop(inp, w, h, x, y)
+        Encoder._run_cmd(cmd, show_commands)
         return out
 
-    @staticmethod
-    def get_dimensions(tar: str) -> Tuple[int, int]:
+    @classmethod
+    def get_dimensions(cls, tar: str) -> Tuple[int, int]:
         """Return video width,height for target"""
-        fout = Encoder.ffprobe(tar, "width,height")
+        fout = Encoder._ffprobe(tar, "width,height")
         iwidth, iheight = fout.split()
         return int(iwidth), int(iheight)
 
-    @staticmethod
-    def get_duration(tar: str) -> float:
+    @classmethod
+    def get_duration(cls, tar: str) -> float:
         """Return video duration for target"""
-        fout = Encoder.ffprobe(tar, "duration")
+        fout = Encoder._ffprobe(tar, "duration")
         return float(fout)
 
-    @staticmethod
-    def get_fps(tar: str) -> float:
+    @classmethod
+    def get_fps(cls, tar: str) -> float:
         """Return video fps for target"""
-        fout = Encoder.ffprobe(tar, "r_frame_rate")
+        fout = Encoder._ffprobe(tar, "r_frame_rate")
         frames, seconds = fout.split("/")
         return round(float(float(frames) / float(seconds)), 3)
 
-    @staticmethod
-    def get_codec(tar: str) -> str:
+    @classmethod
+    def get_codec(cls, tar: str) -> str:
         """Return video codec for target"""
-        return Encoder.ffprobe(tar, "codec_name")
+        return Encoder._ffprobe(tar, "codec_name")
 
-    @staticmethod
-    def ffprobe(tar: str, stream_value: str) -> str:
+    @abstractmethod
+    def encode(self) -> str:
+        """
+        Encode gif until it's the maximum size it can be within the size limit
+        using ffmpeg or gifski
+        """
+        raise NotImplementedError("encode must be implemented")
+
+    @classmethod
+    def create_einfo(
+        cls, filename: str, fps, output_type: str
+    ) -> EncodingInfo:
+        codec = cls.get_codec(filename)
+        iwidth, iheight = cls.get_dimensions(filename)
+        return EncodingInfo.new(
+            filename, iwidth, iheight, codec, output_type, fps
+        )
+
+    def _wsize_and_mul(self, size: int, old_width: int, mul: float):
+        """
+        Reduce or increase width based on file size and frame size that
+        resulted from the old_width. This new_width will be used to calculate
+        height as well. Return new_width
+        """
+        video_is_out_of_bounds = self.einfo.max_width_check(old_width)
+
+        if size >= self.einfo.osize_limit or video_is_out_of_bounds:
+            if mul > 0 or video_is_out_of_bounds:
+                if mul > 0:
+                    mul = mul / 2
+                    mul *= -1
+            new_width = old_width * (1 + mul)
+            new_width = int(new_width)
+        else:
+            if mul < 0:
+                mul = mul / 2
+                mul *= -1
+            new_width = old_width * (1 + mul)
+            new_width = int(new_width)
+        return new_width, mul
+
+    @classmethod
+    def _run_cmd(cls, cmd: str, show_command: bool = True):
+        if show_command:
+            print(f"\n{cmd}")
+        subprocess.run(cmd, shell=True)
+
+    @classmethod
+    def _ffprobe(cls, tar: str, stream_value: str) -> str:
         """Return value of stream_value for target"""
         formatted_str = (
             f"ffprobe -v error -select_streams v:0 -show_entries "
@@ -114,19 +148,13 @@ class Encoder:
         ).stdout.decode("utf-8")
         return fout.strip()
 
-    def encode_gif(self) -> str:
-        """
-        Encode gif until it's the maximum size it can be within the size limit using ffmpeg or gifski
-        """
-        GIFSKI = self.einfo.iname.endswith("*.png")
 
-        if GIFSKI:
-            self.output = self.gifski_encode()
-        else:
-            self.output = self.ffmpeg_encode()
-        return self.output
+class GifskiEncoder(Encoder):
+    def __init__(self, einfo: EncodingInfo):
+        super().__init__(einfo)
 
-    def gifski_encode(self) -> str:
+    def encode(self) -> str:
+        """Encode video using gifski"""
         if sys.platform == "win32":
             gifski = "gifski.exe"
         else:
@@ -171,12 +199,17 @@ class Encoder:
             if size_is_within_range or (size_is_close_enough):
                 break
             old_width = owidth
-            owidth, mul = self.wsize_and_mul(size, owidth, mul)
+            owidth, mul = self._wsize_and_mul(size, owidth, mul)
 
         os.chdir(old_cwd)
         return einfo.oname
 
-    def ffmpeg_encode(self) -> str:
+
+class FFmpegEncoder(Encoder):
+    def __init__(self, einfo: EncodingInfo):
+        super().__init__(einfo)
+
+    def encode(self) -> str:
         """Encode video using ffmpeg"""
         FFMPEG_GIF = (
             'ffmpeg -y -i "{}" -filter_complex "[0:v] scale={}:{}'
@@ -219,40 +252,7 @@ class Encoder:
             ):
                 break
             old_width = owidth
-            owidth, mul = self.wsize_and_mul(size, owidth, mul)
+            owidth, mul = self._wsize_and_mul(size, owidth, mul)
             oheight = int(owidth * einfo.ohscale)
 
         return einfo.oname
-
-    def wsize_and_mul(self, size: int, old_width: int, mul: float):
-        """
-        Reduce or increase width based on file size and frame size that
-        resulted from the old_width. This new_width will be used to calculate
-        height as well. Return new_width
-        """
-        video_is_out_of_bounds = self.einfo.max_width_check(old_width)
-
-        if size >= self.einfo.osize_limit or video_is_out_of_bounds:
-            if mul > 0 or video_is_out_of_bounds:
-                if mul > 0:
-                    mul = mul / 2
-                    mul *= -1
-            new_width = old_width * (1 + mul)
-            new_width = int(new_width)
-        else:
-            if mul < 0:
-                mul = mul / 2
-                mul *= -1
-            new_width = old_width * (1 + mul)
-            new_width = int(new_width)
-        return new_width, mul
-
-    @classmethod
-    def create_einfo(
-        cls, filename: str, fps, output_type: str
-    ) -> EncodingInfo:
-        codec = cls.get_codec(filename)
-        iwidth, iheight = cls.get_dimensions(filename)
-        return EncodingInfo.new(
-            filename, iwidth, iheight, codec, output_type, fps
-        )
