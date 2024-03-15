@@ -116,18 +116,36 @@ class Encoder(ABC):
         video_is_out_of_bounds = self.einfo.max_width_check(old_width)
 
         if size >= self.einfo.osize_limit or video_is_out_of_bounds:
-            if mul > 0 or video_is_out_of_bounds:
-                if mul > 0:
-                    mul = mul / 2
-                    mul *= -1
-            new_width = old_width * (1 + mul)
-            new_width = int(new_width)
+            return self._get_reduced_size(
+                old_width, mul, video_is_out_of_bounds
+            )
         else:
-            if mul < 0:
+            return self._get_increased_size(old_width, mul)
+
+    def _get_reduced_size(
+        self,
+        old_width: int,
+        mul: float,
+        video_is_out_of_bounds: bool,
+    ):
+        if mul > 0 or video_is_out_of_bounds:
+            if mul > 0:
                 mul = mul / 2
                 mul *= -1
-            new_width = old_width * (1 + mul)
-            new_width = int(new_width)
+        new_width = old_width * (1 + mul)
+        new_width = int(new_width)
+        return new_width, mul
+
+    def _get_increased_size(
+        self,
+        old_width: int,
+        mul: float,
+    ):
+        if mul < 0:
+            mul = mul / 2
+            mul *= -1
+        new_width = old_width * (1 + mul)
+        new_width = int(new_width)
         return new_width, mul
 
     @classmethod
@@ -171,10 +189,6 @@ class GifskiEncoder(Encoder):
         os.chdir(os.path.dirname(einfo.iname))
 
         mul = 0.60
-        width_margin = (
-            1 if einfo.osize_limit == EncodingInfo.EMOTE_SIZE else 20
-        )
-
         old_width = -1
         while old_width != owidth:
             formatted_str = GIFSKI_GIF.format(
@@ -186,7 +200,7 @@ class GifskiEncoder(Encoder):
 
             subprocess.run(formatted_str, shell=True)
             size = os.stat(einfo.oname).st_size
-            print(f"size: {size}")
+            print(f"size: {size//1024}KB")
             size_is_within_range = (
                 einfo.osize_limit * einfo.osize_range
                 < size
@@ -194,7 +208,7 @@ class GifskiEncoder(Encoder):
             )
             size_is_close_enough = not einfo.max_width_check(
                 owidth
-            ) and einfo.max_width_check(owidth + width_margin)
+            ) and einfo.max_width_check(owidth + einfo.width_change_margin)
 
             if size_is_within_range or (size_is_close_enough):
                 break
@@ -241,6 +255,7 @@ class FFmpegEncoder(Encoder):
 
             subprocess.run(formatted_str, shell=True)
             size = os.stat(einfo.oname).st_size
+            print(f"size: {size//1024}KB")
             if (
                 einfo.osize_limit * einfo.osize_range
                 < size

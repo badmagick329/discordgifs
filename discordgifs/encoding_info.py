@@ -95,6 +95,10 @@ class EncodingInfo(ABC):
     def is_sticker(self) -> bool:
         return self.out_choice == "sticker"
 
+    @property
+    def width_change_margin(self) -> int:
+        return 1 if self.osize_limit == EncodingInfo.EMOTE_SIZE else 20
+
     def max_width_check(self, width: int) -> bool:
         """
         Return True if given width will take video out of bounds based on the
