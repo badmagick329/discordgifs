@@ -28,3 +28,6 @@ def crop(inp: str, w: int, h: int, x: int, y: int) -> Tuple[str, str]:
     CROP = 'ffmpeg -y -i "{}" -filter:v "crop={}:{}:{}:{}" -c:v libx264 -crf 0 -an -loglevel warning "{}"'
     out = get_available_name(inp, "mp4")
     return CROP.format(inp, w, h, x, y, out), out
+
+def ffplay_preview(video: str) -> str:
+    return f'ffplay -autoexit -loop 0 -an -loglevel warning "{video}"'

@@ -323,7 +323,7 @@ class GuiHandler:
             Tags.preview_message,
             "File Cropped. Remember to close file after viewing so it can be removed during cleanup at the end",
         )
-        os.startfile(self.cropped_filenames[-1])
+        Encoder.preview(self.cropped_filenames[-1])
         dpg.configure_item(Tags.preview_file_button, enabled=True)
         dpg.configure_item(Tags.crop_confirm_button, enabled=True)
 

@@ -107,6 +107,13 @@ class Encoder(ABC):
             filename, iwidth, iheight, codec, output_type, fps
         )
 
+    @classmethod
+    def preview(cls, video: str):
+        """Preview the video"""
+        cmd = ffmpeg_cmds.ffplay_preview(video)
+        proc = subprocess.Popen(cmd, shell=True)
+        return proc
+
     def _wsize_and_mul(self, size: int, old_width: int, mul: float):
         """
         Reduce or increase width based on file size and frame size that
