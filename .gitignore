@@ -47,3 +47,5 @@ ffprobe.exe
 gifski.exe
 discordgifs.bat
 notes/
+
+.ignore/
